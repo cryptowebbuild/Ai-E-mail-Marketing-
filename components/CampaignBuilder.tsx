@@ -3,7 +3,11 @@ import { generateCampaignText, generateCampaignImage } from '../services/geminiS
 import { CampaignData, ImageSize } from '../types';
 import ReactMarkdown from 'react-markdown';
 
-export const CampaignBuilder: React.FC = () => {
+interface CampaignBuilderProps {
+  onApiKeyError: () => void;
+}
+
+export const CampaignBuilder: React.FC<CampaignBuilderProps> = ({ onApiKeyError }) => {
   const [topic, setTopic] = useState('');
   const [audience, setAudience] = useState('');
   const [tone, setTone] = useState('Professional');
@@ -38,6 +42,10 @@ export const CampaignBuilder: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
+      if (err.message?.includes('403') || err.message?.includes('PERMISSION_DENIED') || err.status === 403) {
+        onApiKeyError();
+        return;
+      }
       setError(err.message || "Failed to generate campaign.");
     } finally {
       setIsGeneratingText(false);
@@ -52,6 +60,10 @@ export const CampaignBuilder: React.FC = () => {
         const imageUrl = await generateCampaignImage(campaignData.imagePrompt, imageSize);
         setGeneratedImageUrl(imageUrl);
     } catch (err: any) {
+        if (err.message?.includes('403') || err.message?.includes('PERMISSION_DENIED') || err.status === 403) {
+            onApiKeyError();
+            return;
+        }
         setError("Failed to regenerate image: " + err.message);
     } finally {
         setIsGeneratingImage(false);

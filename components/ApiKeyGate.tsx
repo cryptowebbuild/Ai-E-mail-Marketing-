@@ -9,14 +9,24 @@ interface AIStudio {
 
 interface ApiKeyGateProps {
   onReady: () => void;
+  forceSelection?: boolean;
 }
 
-export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
+export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady, forceSelection = false }) => {
   const [hasKey, setHasKey] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(!forceSelection);
+  const [error, setError] = useState<string | null>(
+    forceSelection ? "The previous API key was invalid or does not have permission for this model." : null
+  );
 
   const checkKey = useCallback(async () => {
+    // If we are forcing selection (due to a 403 error previously), skip the auto-check
+    if (forceSelection) {
+        setLoading(false);
+        setHasKey(false);
+        return;
+    }
+
     try {
       setLoading(true);
       // Use type assertion to access aistudio on window
@@ -32,10 +42,6 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
         }
       } else {
         // If window.aistudio is missing, we might be in an environment where the key is already env-injected
-        // strictly speaking, but for this specific "Nano Banana Pro" feature, the instructions mandate the check.
-        // We will assume if window.aistudio is missing, we can't proceed with the specific "Key Selection" flow
-        // but typically in the dev environment provided, it should be there.
-        // Fallback: assume ready if not present (dev environment quirk handling), but log warning.
         console.warn("window.aistudio not found. Assuming environment key is present.");
         setHasKey(true); 
         onReady();
@@ -46,7 +52,7 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
     } finally {
       setLoading(false);
     }
-  }, [onReady]);
+  }, [onReady, forceSelection]);
 
   useEffect(() => {
     checkKey();
@@ -57,8 +63,7 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
     if (aiStudio) {
       try {
         await aiStudio.openSelectKey();
-        // Assume success after closing dialog as per instructions, or re-check
-        // Instructions: "MUST assume the key selection was successful after triggering openSelectKey()"
+        setError(null);
         setHasKey(true);
         onReady();
       } catch (e: any) {
@@ -68,6 +73,7 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
             alert("Session expired or invalid. Please select a key again.");
         } else {
             console.error(e);
+            setError("Failed to select key. Please try again.");
         }
       }
     }
@@ -81,7 +87,7 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
     );
   }
 
-  if (hasKey) return null; // Should not render anything if key is present, parent handles rendering app
+  if (hasKey && !forceSelection) return null; // Should not render anything if key is present, parent handles rendering app
 
   return (
     <div className="flex flex-col h-screen w-full items-center justify-center bg-slate-50 p-4">
@@ -96,6 +102,12 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
           To use the advanced <b>Gemini 3 Pro</b> models for text and image generation, please select a valid API key with billing enabled.
         </p>
         
+        {error && (
+            <div className="mb-6 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 bg-opacity-50">
+                {error}
+            </div>
+        )}
+        
         <button
           onClick={handleSelectKey}
           className="w-full py-3 px-4 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -109,7 +121,6 @@ export const ApiKeyGate: React.FC<ApiKeyGateProps> = ({ onReady }) => {
         <p className="mt-4 text-xs text-slate-400">
            See <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="underline hover:text-brand-600">billing documentation</a> for details.
         </p>
-        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
     </div>
   );

@@ -4,7 +4,11 @@ import { ChatMessage } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { GenerateContentResponse } from "@google/genai";
 
-export const ChatBot: React.FC = () => {
+interface ChatBotProps {
+  onApiKeyError: () => void;
+}
+
+export const ChatBot: React.FC<ChatBotProps> = ({ onApiKeyError }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Hello! I am your AI marketing assistant. Ask me anything about strategy, copywriting, or analytics.', timestamp: Date.now() }
   ]);
@@ -55,8 +59,12 @@ export const ChatBot: React.FC = () => {
             )
          );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat Error:", error);
+      if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED') || error.status === 403) {
+        onApiKeyError();
+        return;
+      }
       setMessages(prev => [...prev, { role: 'model', text: "Sorry, I encountered an error. Please try again.", timestamp: Date.now() }]);
     } finally {
       setIsTyping(false);

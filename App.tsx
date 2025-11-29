@@ -6,10 +6,24 @@ import { AppView } from './types';
 
 function App() {
   const [isKeyReady, setIsKeyReady] = useState(false);
+  const [forceKeySelection, setForceKeySelection] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>(AppView.CAMPAIGN);
 
+  const handleApiKeyError = () => {
+    setForceKeySelection(true);
+    setIsKeyReady(false);
+  };
+
   if (!isKeyReady) {
-    return <ApiKeyGate onReady={() => setIsKeyReady(true)} />;
+    return (
+        <ApiKeyGate 
+            onReady={() => {
+                setIsKeyReady(true);
+                setForceKeySelection(false);
+            }} 
+            forceSelection={forceKeySelection} 
+        />
+    );
   }
 
   return (
@@ -73,8 +87,8 @@ function App() {
 
         {/* View Rendering */}
         <main className="flex-1 overflow-hidden relative">
-          {currentView === AppView.CAMPAIGN && <CampaignBuilder />}
-          {currentView === AppView.CHAT && <ChatBot />}
+          {currentView === AppView.CAMPAIGN && <CampaignBuilder onApiKeyError={handleApiKeyError} />}
+          {currentView === AppView.CHAT && <ChatBot onApiKeyError={handleApiKeyError} />}
         </main>
       </div>
     </div>
